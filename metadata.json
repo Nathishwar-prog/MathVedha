@@ -1,0 +1,6 @@
+{
+  "name": "MathVeda Graph Explorer",
+  "description": "An interactive graph visualization tool for learning linear algebra, coordinate geometry, and AI foundations.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}
