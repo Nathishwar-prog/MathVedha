@@ -11,33 +11,55 @@ export function calculateIntercept(p: {x: number; y: number}, m: number): number
 }
 
 export function parseEquation(eq: string): {m: number; b: number} | null {
-  // Rough parser for y = mx + b
-  const cleaned = eq.replace(/\s/g, '').toLowerCase();
-  
-  // Handle y = mx + b
-  const linearMatch = cleaned.match(/^y=(-?\d*\.?\d*)x([+-]\d*\.?\d*)?$/);
-  if (linearMatch) {
-    let mStr = linearMatch[1];
-    if (mStr === '' || mStr === '+') mStr = '1';
-    if (mStr === '-') mStr = '-1';
-    const m = parseFloat(mStr);
-    const b = linearMatch[2] ? parseFloat(linearMatch[2]) : 0;
-    return {m, b};
-  }
+  // Remove all spaces and convert to lowercase
+  let cleaned = eq.replace(/\s/g, '').toLowerCase();
+  if (cleaned === '') return null;
 
-  // Handle y = b
-  const constantMatch = cleaned.match(/^y=(-?\d*\.?\d*)$/);
-  if (constantMatch) {
-    return {m: 0, b: parseFloat(constantMatch[1])};
-  }
-
-  // Handle x = k (vertical)
-  const verticalMatch = cleaned.match(/^x=(-?\d*\.?\d*)$/);
+  // Pattern for x = k (Vertical lines)
+  const verticalMatch = cleaned.match(/^x=([-+]?\d*\.?\d+)$/);
   if (verticalMatch) {
-    return {m: Infinity, b: parseFloat(verticalMatch[1])};
+    const val = parseFloat(verticalMatch[1]);
+    return isNaN(val) ? null : { m: Infinity, b: val };
   }
 
-  return null;
+  // If it starts with x= but didn't match the simple number, it's invalid for this tool
+  if (cleaned.startsWith('x=')) return null;
+
+  // Handle y = mx + b
+  if (cleaned.startsWith('y=')) {
+    cleaned = cleaned.substring(2);
+  }
+
+  // Regex to capture m and b components
+  // Group 1: m (with x)
+  // Group 2: b (constant)
+  // Handles: 2x+1, -x-3, .5x, 4, etc.
+  
+  // Case 1: Just a constant (y = b)
+  if (!cleaned.includes('x')) {
+    const b = parseFloat(cleaned);
+    return isNaN(b) ? null : { m: 0, b };
+  }
+
+  // Case 2: mx or mx + b
+  // Split by x
+  const parts = cleaned.split('x');
+  let mStr = parts[0];
+  let bStr = parts[1] || '0';
+
+  let m = 1;
+  if (mStr === '' || mStr === '+') m = 1;
+  else if (mStr === '-') m = -1;
+  else m = parseFloat(mStr);
+
+  let b = 0;
+  if (bStr !== '') {
+    // If b part exists, it should start with + or -
+    b = parseFloat(bStr);
+  }
+
+  if (isNaN(m) || isNaN(b)) return null;
+  return { m, b };
 }
 
 export function findIntersection(l1: Line, l2: Line, points: Point[]): Intersection | null {

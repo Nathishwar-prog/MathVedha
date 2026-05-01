@@ -50,6 +50,31 @@ export default function App() {
   const [newDashStyle, setNewDashStyle] = useState<'solid' | 'dashed' | 'dotted'>('solid');
   const [newColor, setNewColor] = useState(COLORS[0]);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [showGrid, setShowGrid] = useState(true);
+  const [eqValidation, setEqValidation] = useState<{ isValid: boolean; parsed: {m: number, b: number} | null } | null>(null);
+
+  // Suggestions for common equations
+  const SUGGESTIONS = [
+    'y = x',
+    'y = -x',
+    'y = 2',
+    'x = 3',
+    'y = 2x + 1',
+    'y = -0.5x - 2'
+  ];
+
+  // Real-time validation
+  useEffect(() => {
+    if (!eqInput) {
+      setEqValidation(null);
+      return;
+    }
+    const res = parseEquation(eqInput);
+    setEqValidation({ 
+      isValid: !!res, 
+      parsed: res 
+    });
+  }, [eqInput]);
 
   // Auto-generate lines from points
   const processedLines = useMemo(() => {
@@ -122,14 +147,15 @@ export default function App() {
         equation: eqInput,
         m: res.m,
         b: res.b,
-        color: newColor,
         thickness: newThickness,
-        dashStyle: newDashStyle
+        dashStyle: newDashStyle,
+        color: newColor
       };
-      setLines([...lines, newLine]);
+      setLines(prev => [...prev, newLine]);
       setEqInput('');
+      // Small toast-like feedback could go here, but for now we'll just clear input
     } else {
-      alert("Invalid equation! Use y = mx + b format. Example: y = 2x + 1 or y = 5");
+      alert("Format error: Use 'y = mx + b' or '2x + 5'. We support fractions like 0.5 too!");
     }
   };
 
@@ -192,21 +218,73 @@ export default function App() {
           {/* Header */}
           <section>
             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Equation Input</h2>
-            <div className="flex gap-2 mb-2">
-              <input 
-                type="text" 
-                value={eqInput}
-                onChange={(e) => setEqInput(e.target.value)}
-                placeholder="y = 2x + 1"
-                className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 transition-all outline-none"
-              />
-              <button 
-                onClick={addEquation}
-                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                title="Add Line"
-              >
-                <Plus className="w-4 h-4" />
-              </button>
+            <div className="space-y-3 mb-4">
+              <div className="flex gap-2 relative">
+                <div className="flex-1 relative">
+                  <input 
+                    type="text" 
+                    value={eqInput}
+                    onChange={(e) => setEqInput(e.target.value)}
+                    placeholder="y = 2x + 1"
+                    className={cn(
+                      "w-full px-3 py-2 bg-slate-50 border rounded-lg text-sm transition-all outline-none",
+                      eqInput === "" ? "border-slate-200 focus:ring-blue-500" : 
+                      eqValidation?.isValid ? "border-emerald-500 focus:ring-emerald-500 bg-emerald-50/30" : 
+                      "border-red-500 focus:ring-red-500 bg-red-50/30 text-red-700"
+                    )}
+                  />
+                  {eqValidation && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                      {eqValidation.isValid ? (
+                        <Check className="w-4 h-4 text-emerald-500" />
+                      ) : (
+                        <Info className="w-4 h-4 text-red-500" />
+                      )}
+                    </div>
+                  )}
+                </div>
+                <button 
+                  onClick={addEquation}
+                  disabled={!eqValidation?.isValid}
+                  className={cn(
+                    "p-2 rounded-lg transition-colors",
+                    eqValidation?.isValid ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-slate-200 text-slate-400 cursor-not-allowed"
+                  )}
+                  title="Add Line"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Validation helper text */}
+              <AnimatePresence mode="wait">
+                {eqInput && eqValidation && !eqValidation.isValid && (
+                  <motion.p 
+                    initial={{ opacity: 0, y: -5 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -5 }}
+                    className="text-[10px] text-red-500 font-medium px-1"
+                  >
+                    Format needs to be y = mx + b or x = constant
+                  </motion.p>
+                )}
+              </AnimatePresence>
+
+              {/* Suggestions */}
+              <div>
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 block">Quick Add</span>
+                <div className="flex flex-wrap gap-1.5">
+                  {SUGGESTIONS.map(s => (
+                    <button
+                      key={s}
+                      onClick={() => setEqInput(s)}
+                      className="px-2 py-1 text-[10px] bg-slate-100 hover:bg-slate-200 text-slate-600 rounded transition-colors"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
             
             <div className="flex flex-col gap-2 p-2 bg-slate-50 rounded-lg border border-slate-100">
@@ -252,6 +330,30 @@ export default function App() {
                 </div>
               </div>
             </div>
+          </section>
+
+          {/* View Toggle */}
+          <section>
+             <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">View Options</h2>
+             <label className="flex items-center justify-between p-2 rounded-lg bg-slate-50 border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+                <div className="flex items-center gap-2">
+                  <Grid className="w-4 h-4 text-slate-500" />
+                  <span className="text-sm font-medium text-slate-700">Display Grid</span>
+                </div>
+                <div 
+                  onClick={() => setShowGrid(!showGrid)}
+                  className={cn(
+                    "w-10 h-5 rounded-full p-1 transition-colors relative",
+                    showGrid ? "bg-blue-600" : "bg-slate-300"
+                  )}
+                >
+                  <motion.div 
+                    animate={{ x: showGrid ? 20 : 0 }}
+                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    className="w-3 h-3 bg-white rounded-full shadow-sm"
+                  />
+                </div>
+             </label>
           </section>
 
           {/* Points List */}
@@ -453,6 +555,7 @@ export default function App() {
             points={points} 
             lines={processedLines} 
             intersections={intersections}
+            showGrid={showGrid}
             onAddPoint={(x, y) => {
               if (showPractice && practiceQuestion?.a.includes(',')) {
                 if (`${x},${y}` === practiceQuestion.a) {
